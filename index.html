@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시간표 만들기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+            display: inline-block; /* 제목을 인라인으로 변경 */
+        }
+        #highlight-checkbox-container {
+            display: inline-block; /* 체크박스를 제목 옆에 배치 */
+            margin-left: 20px; /* 제목과 체크박스 사이의 간격 */
+            vertical-align: middle; /* 체크박스를 제목과 수직으로 맞춤 */
+        }
+        button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #timetableCanvas {
+            border: 1px solid black;
+            margin-top: 20px;
+        }
+        #error-message {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>학교 시간표 이미지 만들기</h1>
+    <div id="highlight-checkbox-container">
+        <label for="highlight-checkbox">하이라이트:</label>
+        <input type="checkbox" id="highlight-checkbox">
+    </div>
+
+    <form id="timetableForm">
+        <div id="button-container">
+            <button type="button" onclick="createAndDownloadTimetable()">시간표 다운로드</button>
+        </div>
+    </form>
+
+    <p id="error-message">동일한 시간에 2개 이상 과목이 추가 되어 있습니다.</p>
+
+    <canvas id="timetableCanvas"></canvas>
+
+    <script>
+        const timeSlots = ["1(08:10)", "2(09:10)", "3(10:10)", "4(11:10)", "5(13:00)", "6(14:00)", "7(15:00)", "8(16:00)"];
+        const days = ["월", "화", "수", "목", "금"];
+        let subjectData = {};  // 과목 데이터를 저장할 객체
+
+        function updateTimetable() {
+            let canvas = document.getElementById('timetableCanvas');
+            let ctx = canvas.getContext('2d');
+            let cellWidth = 100;
+            let cellHeight = 50;
+
+            canvas.width = cellWidth * (days.length + 1);
+            canvas.height = cellHeight * (timeSlots.length + 1);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'black';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // 시간과 요일 표기
+            for (let i = 0; i < timeSlots.length; i++) {
+                ctx.fillText(timeSlots[i], cellWidth / 2, cellHeight * (i + 1) + cellHeight / 2);
+            }
+
+            for (let i = 0; i < days.length; i++) {
+                ctx.fillText(days[i], cellWidth * (i + 1) + cellWidth / 2, cellHeight / 2);
+            }
+
+            ctx.strokeStyle = 'black';
+            for (let i = 0; i <= timeSlots.length; i++) {
+                for (let j = 0; j <= days.length; j++) {
+                    ctx.strokeRect(j * cellWidth, i * cellHeight, cellWidth, cellHeight);
+                }
+            }
+
+            // 저장된 과목 정보로 시간표에 과목 그리기
+            for (let key in subjectData) {
+                let { subject, highlight } = subjectData[key];
+                let [day, time] = key.split('_');
+                let col = days.indexOf(day) + 1;
+                let row = timeSlots.indexOf(time) + 1;
+
+                if (highlight) {
+                    ctx.fillStyle = 'yellow';
+                    let padding = 1;
+                    ctx.fillRect(col * cellWidth + padding, row * cellHeight + padding, cellWidth - 2 * padding, cellHeight - 2 * padding);
+                }
+
+                ctx.fillStyle = 'black';
+                ctx.fillText(subject, col * cellWidth + cellWidth / 2, row * cellHeight + cellHeight / 2);
+            }
+        }
+
+        // 캔버스에 과목 추가 이벤트
+        document.getElementById('timetableCanvas').addEventListener('click', function(event) {
+        let canvas = event.target;
+        let x = event.offsetX;
+        let y = event.offsetY;
+        let cellWidth = 100;
+        let cellHeight = 50;
+
+        let col = Math.floor(x / cellWidth);
+        let row = Math.floor(y / cellHeight);
+
+        if (col > 0 && row > 0) {
+            let day = days[col - 1];
+            let time = timeSlots[row - 1];
+            let key = day + '_' + time;
+
+            // 기존 과목명을 가져옵니다.
+            let existingSubject = subjectData[key] ? subjectData[key].subject : "";
+
+            // 기존 과목명이 prompt의 기본 값으로 사용됩니다.
+            let subject = prompt(`"${day}요일 ${time}"에 추가할 과목명을 입력하세요:`, existingSubject);
+
+            // 빈칸일 경우 빈 문자열로 저장
+            if (subject === null || subject.trim() === "") {
+                subject = "";  // 빈칸이면 빈 문자열로 설정
+            }
+
+            // 하이라이트 체크 여부 확인 후 저장
+            let highlight = document.getElementById('highlight-checkbox').checked;
+
+            subjectData[key] = {
+                subject: subject,
+                highlight: highlight
+            };
+            updateTimetable();  // 시간표 업데이트
+        }
+    });
+
+        function createAndDownloadTimetable() {
+            // 이미 그려진 시간표를 다운로드
+            let canvas = document.getElementById('timetableCanvas');
+            let link = document.createElement('a');
+            link.download = 'timetable.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();  // 다운로드 트리거
+        }
+
+        updateTimetable();  // 초기 시간표 그리기
+    </script>
+</body>
+</html>
