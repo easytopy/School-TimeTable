@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시간표 만들기</title>
+    <title>학교 시간표 이미지 만들기</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,12 +11,12 @@
         }
         h1 {
             color: #333;
-            display: inline-block; /* 제목을 인라인으로 변경 */
+            display: inline-block;
         }
         #highlight-checkbox-container {
-            display: inline-block; /* 체크박스를 제목 옆에 배치 */
-            margin-left: 20px; /* 제목과 체크박스 사이의 간격 */
-            vertical-align: middle; /* 체크박스를 제목과 수직으로 맞춤 */
+            display: inline-block;
+            margin-left: 20px;
+            vertical-align: middle;
         }
         button {
             margin-top: 10px;
@@ -36,6 +36,7 @@
             display: none;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
 <body>
     <h1>학교 시간표 이미지 만들기</h1>
@@ -55,9 +56,9 @@
     <canvas id="timetableCanvas"></canvas>
 
     <script>
-        const timeSlots = ["1(08:10)", "2(09:10)", "3(10:10)", "4(11:10)", "5(13:00)", "6(14:00)", "7(15:00)", "8(16:00)"];
+        const timeSlots = ["1(08:10)", "2(09:10)", "3(10:10)", "4(11:10)", "5(13:00)", "6(14:00)", "7(15:00)"];
         const days = ["월", "화", "수", "목", "금"];
-        let subjectData = {};  // 과목 데이터를 저장할 객체
+        let subjectData = {};
 
         function updateTimetable() {
             let canvas = document.getElementById('timetableCanvas');
@@ -78,11 +79,15 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // 시간과 요일 표기
+            // "교시" 텍스트 추가
+            ctx.fillText('교시', cellWidth / 2, cellHeight / 2);
+
+            // 시간대 표시
             for (let i = 0; i < timeSlots.length; i++) {
                 ctx.fillText(timeSlots[i], cellWidth / 2, cellHeight * (i + 1) + cellHeight / 2);
             }
 
+            // 요일 표시
             for (let i = 0; i < days.length; i++) {
                 ctx.fillText(days[i], cellWidth * (i + 1) + cellWidth / 2, cellHeight / 2);
             }
@@ -94,7 +99,7 @@
                 }
             }
 
-            // 저장된 과목 정보로 시간표에 과목 그리기
+            // 과목 데이터 처리
             for (let key in subjectData) {
                 let { subject, highlight } = subjectData[key];
                 let [day, time] = key.split('_');
@@ -112,54 +117,79 @@
             }
         }
 
-        // 캔버스에 과목 추가 이벤트
         document.getElementById('timetableCanvas').addEventListener('click', function(event) {
-        let canvas = event.target;
-        let x = event.offsetX;
-        let y = event.offsetY;
-        let cellWidth = 100;
-        let cellHeight = 50;
+            let canvas = event.target;
+            let x = event.offsetX;
+            let y = event.offsetY;
+            let cellWidth = 100;
+            let cellHeight = 50;
 
-        let col = Math.floor(x / cellWidth);
-        let row = Math.floor(y / cellHeight);
+            let col = Math.floor(x / cellWidth);
+            let row = Math.floor(y / cellHeight);
 
-        if (col > 0 && row > 0) {
-            let day = days[col - 1];
-            let time = timeSlots[row - 1];
-            let key = day + '_' + time;
+            if (col > 0 && row > 0) {
+                let day = days[col - 1];
+                let time = timeSlots[row - 1];
+                let key = day + '_' + time;
 
-            // 기존 과목명을 가져옵니다.
-            let existingSubject = subjectData[key] ? subjectData[key].subject : "";
+                let existingSubject = subjectData[key] ? subjectData[key].subject : "";
+                let subject = prompt(`"${day}요일 ${time}"에 추가할 과목명을 입력하세요:`, existingSubject);
 
-            // 기존 과목명이 prompt의 기본 값으로 사용됩니다.
-            let subject = prompt(`"${day}요일 ${time}"에 추가할 과목명을 입력하세요:`, existingSubject);
+                if (subject === null || subject.trim() === "") {
+                    subject = "";  
+                }
 
-            // 빈칸일 경우 빈 문자열로 저장
-            if (subject === null || subject.trim() === "") {
-                subject = "";  // 빈칸이면 빈 문자열로 설정
+                let highlight = document.getElementById('highlight-checkbox').checked;
+                subjectData[key] = { subject, highlight };
+                updateTimetable();  
+                updateURL();
             }
-
-            // 하이라이트 체크 여부 확인 후 저장
-            let highlight = document.getElementById('highlight-checkbox').checked;
-
-            subjectData[key] = {
-                subject: subject,
-                highlight: highlight
-            };
-            updateTimetable();  // 시간표 업데이트
-        }
-    });
+        });
 
         function createAndDownloadTimetable() {
-            // 이미 그려진 시간표를 다운로드
             let canvas = document.getElementById('timetableCanvas');
             let link = document.createElement('a');
             link.download = 'timetable.png';
             link.href = canvas.toDataURL('image/png');
-            link.click();  // 다운로드 트리거
+            link.click();  
         }
 
-        updateTimetable();  // 초기 시간표 그리기
+        function updateURL() {
+            try {
+                let data = JSON.stringify(subjectData);
+                let compressedData = LZString.compressToEncodedURIComponent(data); // 데이터 압축
+                let newURL = window.location.origin + window.location.pathname + "?data=" + compressedData;
+                history.replaceState(null, "", newURL);
+                console.log("URL 업데이트 완료:", newURL);
+            } catch (e) {
+                console.error("URL 업데이트 중 오류 발생:", e);
+            }
+        }
+
+        function loadFromURL() {
+            try {
+                let params = new URLSearchParams(window.location.search);
+                if (params.has("data")) {
+                    let compressedData = params.get("data");
+                    console.log("압축된 데이터:", compressedData);
+                    let decodedData = LZString.decompressFromEncodedURIComponent(compressedData); // 데이터 해제
+                    if (decodedData) {
+                        subjectData = JSON.parse(decodedData);
+                        updateTimetable();
+                        console.log("데이터 로드 성공:", subjectData);
+                    } else {
+                        console.error("압축 해제 실패");
+                    }
+                } else {
+                    console.log("URL에 'data' 파라미터가 없습니다.");
+                }
+            } catch (e) {
+                console.error("데이터 로드 중 오류 발생:", e);
+            }
+        }
+
+        loadFromURL();
+        updateTimetable();
     </script>
 </body>
 </html>
